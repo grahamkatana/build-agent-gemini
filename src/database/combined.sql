@@ -1514,7 +1514,7 @@ VALUES
 ('BOOYSENS', 'out', 1, 'Pretorius', 'Between Bosman and Paul Kruger', 'terminal', 28.1860, -25.7450, NULL),
 ('BOOYSENS', 'out', 2, 'Kgosi Mampuru', '', 'stop', 28.1920, -25.7560, NULL),
 ('BOOYSENS', 'out', 3, 'WF Nkomo', '', 'stop', 28.1600, -25.7560, NULL),
-('BOOYSENS', 'out', 4, 'Es\'kia Mphahlele', '', 'stop', 28.1500, -25.7560, NULL),
+('BOOYSENS', 'out', 4, 'Es''kia Mphahlele', '', 'stop', 28.1500, -25.7560, NULL),
 ('BOOYSENS', 'out', 5, 'Van der Hoff', '', 'stop', 28.1400, -25.7560, NULL),
 ('BOOYSENS', 'out', 6, 'Hendrik', '', 'stop', 28.1350, -25.7560, NULL),
 ('BOOYSENS', 'out', 7, 'Jennings', '', 'stop', 28.1300, -25.7560, NULL),
@@ -1537,7 +1537,7 @@ VALUES
 ('BOOYSENS', 'in', 10, 'Jennings', '', 'stop', 28.1300, -25.7560, NULL),
 ('BOOYSENS', 'in', 11, 'Hendrik', '', 'stop', 28.1350, -25.7560, NULL),
 ('BOOYSENS', 'in', 12, 'Van der Hoff', '', 'stop', 28.1400, -25.7560, NULL),
-('BOOYSENS', 'in', 13, 'Es\'kia Mphahlele', '', 'stop', 28.1500, -25.7560, NULL),
+('BOOYSENS', 'in', 13, 'Es''kia Mphahlele', '', 'stop', 28.1500, -25.7560, NULL),
 ('BOOYSENS', 'in', 14, 'WF Nkomo', '', 'stop', 28.1600, -25.7560, NULL),
 ('BOOYSENS', 'in', 15, 'Kgosi Mampuru', '', 'stop', 28.1920, -25.7560, NULL),
 

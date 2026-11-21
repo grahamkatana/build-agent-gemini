@@ -44,6 +44,18 @@ def get_connection() -> Generator[Connection, None, None]:
         yield conn
 
 
+def run_safe_query(
+    sql: str, params: dict[str, Any] | None = None
+) -> list[dict[str, Any]]:
+    """Execute a parameterized query inside a strict READ ONLY transaction."""
+    with engine.connect() as conn:
+        # Enforce read-only mode & 3s timeout at the session/transaction level
+        conn.execute(text("SET TRANSACTION READ ONLY"))
+        conn.execute(text("SET LOCAL statement_timeout = '3000ms'"))
+        result = conn.execute(text(sql), params or {})
+        return [dict(row._mapping) for row in result]
+
+
 def get_db() -> Generator[Session, None, None]:
     """Yield an ORM session (compatible with FastAPI Depends or manual next())."""
     db = SessionLocal()
