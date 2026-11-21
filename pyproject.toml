@@ -7,11 +7,10 @@ authors = [
     { name = "grahamkatana", email = "graykatanakenny@gmail.com" }
 ]
 requires-python = ">=3.14"
-dependencies = []
-
-[project.scripts]
-build-agent = "build_agent:main"
-
-[build-system]
-requires = ["uv_build>=0.12.19,<0.13.0"]
-build-backend = "uv_build"
+dependencies = [
+    "dotenv>=0.9.9",
+    "google-genai>=3.6.1",
+    "pandas>=3.1.1",
+    "psycopg[binary]>=3.3.9",
+    "sqlalchemy>=2.1.9",
+]

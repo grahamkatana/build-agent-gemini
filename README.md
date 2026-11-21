@@ -1,0 +1,1 @@
+- Load data: <code>PYTHONPATH=. uv run python src/scripts/load_data.py</code>
