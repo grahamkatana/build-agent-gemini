@@ -4,24 +4,28 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.connectors.gemini import get_gemini_response
-from src.schemas.chat import ApiMeta, ChatData, ChatResponse, RouteReference
+from src.schemas.chat import ApiMeta, ChatData, ChatResponse
+from src.services.map_service import fetch_routes_and_map_data
 
-# Matches route codes like CENTURION, BROOKLYN_8, PRETORIA_NORTH_1, ROUTE_7
 ROUTE_CODE_PATTERN = re.compile(r"\b([A-Z]{3,}(?:_[A-Z0-9]+)*)\b")
 KNOWN_NON_ROUTES = {"CBD", "UTC", "SQL", "API", "JSON", "SAML", "SSO", "HTTP", "HTTPS"}
 
 
-def _extract_route_references(text: str) -> list[RouteReference]:
+def _extract_candidate_codes(text: str) -> list[str]:
     seen: set[str] = set()
-    refs: list[RouteReference] = []
+    codes: list[str] = []
     for match in ROUTE_CODE_PATTERN.findall(text):
         if match not in KNOWN_NON_ROUTES and match not in seen:
             seen.add(match)
-            refs.append(RouteReference(route_code=match))
-    return refs
+            codes.append(match)
+    return codes
 
 
-def handle_bus_chat(query: str, session_id: str | None = None) -> ChatResponse:
+def handle_bus_chat(
+    query: str,
+    session_id: str | None = None,
+    include_map_data: bool = True,
+) -> ChatResponse:
     cleaned_query = query.strip()
     if not cleaned_query:
         raise HTTPException(
@@ -32,6 +36,10 @@ def handle_bus_chat(query: str, session_id: str | None = None) -> ChatResponse:
     start = time.perf_counter()
     try:
         raw_answer = get_gemini_response(cleaned_query)
+        candidate_codes = _extract_candidate_codes(raw_answer)
+        route_refs, map_routes = fetch_routes_and_map_data(
+            candidate_codes, include_map_data=include_map_data
+        )
     except SQLAlchemyError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -49,7 +57,8 @@ def handle_bus_chat(query: str, session_id: str | None = None) -> ChatResponse:
         status="success",
         data=ChatData(
             answer=raw_answer,
-            routes_mentioned=_extract_route_references(raw_answer),
+            routes_mentioned=route_refs,
+            map_routes=map_routes,
         ),
         meta=ApiMeta(
             session_id=session_id,

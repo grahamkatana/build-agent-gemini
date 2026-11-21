@@ -2,7 +2,7 @@ from collections import defaultdict
 from typing import Any
 from sqlalchemy import bindparam, text
 
-from src.database.connection import engine  # Match your engine import
+from src.database.db import engine
 from src.schemas.chat import RouteMapData, RouteReference
 
 
