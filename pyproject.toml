@@ -9,8 +9,18 @@ authors = [
 requires-python = ">=3.14"
 dependencies = [
     "dotenv>=0.9.9",
+    "fastapi>=0.165.0",
     "google-genai>=3.6.1",
     "pandas>=3.1.1",
     "psycopg[binary]>=3.3.9",
+    "pydantic-settings>=2.16.3",
+    "slowapi>=0.1.10",
     "sqlalchemy>=2.1.9",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.2.0",
 ]
