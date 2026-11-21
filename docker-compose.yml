@@ -20,6 +20,20 @@ services:
       interval: 3s
       timeout: 3s
       retries: 10
+  api:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:${POSTGRES_PORT:-5438}/${POSTGRES_DB:-tshwane_bus}}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: tshwane_bus
+      POSTGRES_PORT: 5438
+
+      GEMINI_API_KEY: ${GEMINI_API_KEY:your_api_key_here}
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   tbs_pgdata:

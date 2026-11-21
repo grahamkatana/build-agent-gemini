@@ -1,0 +1,2871 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#ffffff" />
+    <title>TBS AI Agent</title>
+    <meta
+      name="description"
+      content="Agentic transit chat and route assistant for the Tshwane Bus Service network."
+    />
+    <meta property="og:title" content="TBS AI Agent" />
+    <meta
+      property="og:description"
+      content="Agentic transit chat and route assistant for the Tshwane Bus Service network."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+      :root {
+        /* Shared TBS Transit tokens + Modern Agentic Canvas */
+        --primary: #0f172a;
+        --primary-soft: #1e293b;
+        --accent: #2563eb;
+        --accent-hover: #1d4ed8;
+        --accent-lt: #eff6ff;
+        --accent-glow: rgba(37, 99, 235, 0.14);
+        --success: #10b981;
+        --warning: #d97706;
+        --danger: #dc2626;
+
+        --bg: #f8fafc;
+        --surface: #ffffff;
+        --surface-subtle: #f1f5f9;
+        --surface-hover: #f8fafc;
+        --border: #e2e8f0;
+        --border-strong: #cbd5e1;
+
+        --text: #0f172a;
+        --text-secondary: #334155;
+        --muted: #64748b;
+        --subtle: #94a3b8;
+
+        --font-display: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+        --font-sans: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+        --font-mono: "JetBrains Mono", monospace;
+
+        --sidebar-w: 288px;
+        --artifact-w: 440px;
+        --topbar-h: 56px;
+        --radius-sm: 8px;
+        --radius-md: 12px;
+        --radius-lg: 16px;
+        --radius-xl: 20px;
+
+        --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+        --shadow-composer: 0 4px 20px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
+        --shadow-drawer: -8px 0 30px rgba(15, 23, 42, 0.06);
+        --safe-bot: env(safe-area-inset-bottom, 0px);
+        --ease: cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        height: 100%;
+        overscroll-behavior: none;
+        font-family: var(--font-sans);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 14.5px;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      body {
+        height: 100dvh;
+        display: flex;
+        overflow: hidden;
+      }
+
+      button,
+      input,
+      select,
+      textarea {
+        font-family: inherit;
+      }
+
+      button:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      /* ── WORKSPACE SHELL ─────────────────────────────── */
+      .workspace {
+        display: flex;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        position: relative;
+        background: var(--surface);
+      }
+
+      /* ── LEFT RAIL: CORRIDOR EXPLORER ────────────────── */
+      .rail {
+        width: var(--sidebar-w);
+        background: var(--bg);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+        transition: margin-left 0.24s var(--ease), transform 0.24s var(--ease);
+        z-index: 40;
+      }
+
+      .workspace.rail-collapsed .rail {
+        margin-left: calc(var(--sidebar-w) * -1);
+      }
+
+      .rail-header {
+        height: var(--topbar-h);
+        padding: 0 14px 0 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .brand-mark {
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+        background: var(--primary);
+        color: #ffffff;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+      }
+
+      .brand-name {
+        font-family: var(--font-display);
+        font-size: 14.5px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--text);
+        white-space: nowrap;
+      }
+
+      .icon-btn {
+        width: 34px;
+        height: 34px;
+        border-radius: var(--radius-sm);
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--muted);
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: background 0.15s, color 0.15s;
+      }
+
+      .icon-btn:hover {
+        background: var(--surface-subtle);
+        color: var(--text);
+      }
+
+      .rail-controls {
+        padding: 12px 12px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+
+      .rail-search {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+
+      .rail-search svg {
+        position: absolute;
+        left: 11px;
+        color: var(--subtle);
+        pointer-events: none;
+      }
+
+      .rail-search input {
+        width: 100%;
+        height: 36px;
+        padding: 0 12px 0 34px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+      }
+
+      .rail-search input::placeholder {
+        color: var(--subtle);
+      }
+
+      .rail-search input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-glow);
+      }
+
+      .region-strip {
+        display: flex;
+        gap: 4px;
+        overflow-x: auto;
+        scrollbar-width: none;
+        padding-bottom: 2px;
+      }
+
+      .region-strip::-webkit-scrollbar {
+        display: none;
+      }
+
+      .reg-chip {
+        white-space: nowrap;
+        flex-shrink: 0;
+        padding: 4px 10px;
+        border-radius: 7px;
+        border: none;
+        background: transparent;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--muted);
+        cursor: pointer;
+        transition: background 0.14s, color 0.14s;
+      }
+
+      .reg-chip:hover {
+        background: var(--surface-subtle);
+        color: var(--text);
+      }
+
+      .reg-chip.active {
+        background: var(--surface);
+        color: var(--text);
+        font-weight: 600;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border);
+      }
+
+      .rail-section-head {
+        padding: 10px 14px 6px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 11.5px;
+        font-weight: 600;
+        color: var(--muted);
+        flex-shrink: 0;
+      }
+
+      .rail-count {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 11px;
+        color: var(--subtle);
+      }
+
+      .autobox-grid {
+        flex: 1;
+        overflow-y: auto;
+        padding: 4px 10px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-strong) transparent;
+      }
+
+      .autobox-grid::-webkit-scrollbar {
+        width: 4px;
+      }
+
+      .autobox-grid::-webkit-scrollbar-thumb {
+        background: var(--border-strong);
+        border-radius: 4px;
+      }
+
+      .route-box {
+        width: 100%;
+        text-align: left;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: var(--radius-sm);
+        padding: 9px 10px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        transition: background 0.14s, border-color 0.14s;
+      }
+
+      .route-box:hover {
+        background: var(--surface);
+        border-color: var(--border);
+      }
+
+      .route-box.active-route {
+        background: var(--accent-lt);
+        border-color: rgba(37, 99, 235, 0.25);
+      }
+
+      .rb-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .rb-meta {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11.5px;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .rb-code {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--accent);
+      }
+
+      .rail-footer {
+        padding: 10px 14px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--muted);
+        flex-shrink: 0;
+        background: var(--bg);
+      }
+
+      .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-weight: 500;
+        color: var(--text-secondary);
+      }
+
+      .status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--success);
+        flex-shrink: 0;
+      }
+
+      .status-dot.offline {
+        background: var(--danger);
+      }
+
+      /* ── CENTER STAGE: AGENTIC CHAT MAIN CHARACTER ──── */
+      .chat-stage {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        background: var(--surface);
+        position: relative;
+        height: 100%;
+      }
+
+      .stage-topbar {
+        height: var(--topbar-h);
+        padding: 0 20px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-shrink: 0;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(8px);
+      }
+
+      .stage-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .rail-open-btn {
+        display: grid;
+      }
+
+      .workspace:not(.rail-collapsed) .rail-open-btn {
+        display: none;
+      }
+
+      .stage-title-group {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .stage-title {
+        font-family: var(--font-display);
+        font-size: 14.5px;
+        font-weight: 700;
+        color: var(--text);
+        white-space: nowrap;
+      }
+
+      .stage-context {
+        font-size: 12.5px;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .stage-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .btn-ghost {
+        height: 34px;
+        padding: 0 12px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-secondary);
+        font-size: 12.5px;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        white-space: nowrap;
+        flex-shrink: 0;
+        transition: background 0.14s, border-color 0.14s, color 0.14s;
+      }
+
+      .btn-ghost:hover {
+        background: var(--surface-subtle);
+        color: var(--text);
+        border-color: var(--border-strong);
+      }
+
+      .btn-map-toggle {
+        height: 34px;
+        padding: 0 13px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        font-size: 12.5px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        cursor: pointer;
+        white-space: nowrap;
+        flex-shrink: 0;
+        transition: all 0.15s;
+      }
+
+      .btn-map-toggle:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--accent-lt);
+      }
+
+      .btn-map-toggle.active {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: #ffffff;
+      }
+
+      .map-route-count {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 11px;
+        opacity: 0.78;
+      }
+
+      /* ── CONVERSATION STREAM ─────────────────────────── */
+      .chat-scroll {
+        flex: 1;
+        overflow-y: auto;
+        padding: 24px 24px 20px;
+        display: flex;
+        flex-direction: column;
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-strong) transparent;
+      }
+
+      .chat-scroll::-webkit-scrollbar {
+        width: 5px;
+      }
+
+      .chat-scroll::-webkit-scrollbar-thumb {
+        background: var(--border-strong);
+        border-radius: 5px;
+      }
+
+      .chat-container {
+        width: 100%;
+        max-width: 760px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+      }
+
+      /* Empty / Welcome Hero */
+      .welcome-hero {
+        margin: auto 0;
+        padding: 24px 0 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+
+      .welcome-hero.hidden {
+        display: none;
+      }
+
+      .welcome-copy h1 {
+        font-family: var(--font-display);
+        font-size: clamp(1.65rem, 2.6vw, 2.25rem);
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1.18;
+        color: var(--text);
+        text-wrap: balance;
+      }
+
+      .welcome-copy p {
+        margin-top: 10px;
+        font-size: 15px;
+        color: var(--muted);
+        max-width: 56ch;
+      }
+
+      .starter-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .starter-card {
+        text-align: left;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 14px 16px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        transition: border-color 0.16s var(--ease), background 0.16s var(--ease), transform 0.16s var(--ease);
+      }
+
+      .starter-card:hover {
+        border-color: var(--accent);
+        background: var(--accent-lt);
+        transform: translateY(-1px);
+      }
+
+      .starter-label {
+        font-size: 11.5px;
+        font-weight: 600;
+        color: var(--accent);
+      }
+
+      .starter-query {
+        font-size: 13.5px;
+        font-weight: 500;
+        color: var(--text);
+        line-height: 1.4;
+      }
+
+      /* Feed Messages */
+      .chat-feed {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+        padding-bottom: 12px;
+      }
+
+      /* User Message */
+      .user-turn {
+        display: flex;
+        justify-content: flex-end;
+        animation: msgIn 0.2s var(--ease) both;
+      }
+
+      .user-query-pill {
+        background: var(--primary);
+        color: #ffffff;
+        padding: 11px 16px;
+        border-radius: 18px 18px 4px 18px;
+        font-size: 14px;
+        font-weight: 500;
+        max-width: 78%;
+        line-height: 1.5;
+        word-break: break-word;
+      }
+
+      /* Assistant Turn */
+      .agent-turn {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        animation: msgIn 0.24s var(--ease) both;
+      }
+
+      @keyframes msgIn {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .agent-avatar {
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+        background: var(--accent-lt);
+        color: var(--accent);
+        border: 1px solid rgba(37, 99, 235, 0.18);
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+
+      .agent-body {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .agent-turn-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .agent-name {
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      .agent-latency {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 11px;
+        color: var(--subtle);
+      }
+
+      /* Markdown Prose */
+      .tc-details {
+        font-size: 14.5px;
+        line-height: 1.65;
+        color: var(--text-secondary);
+      }
+
+      .tc-details p {
+        margin-bottom: 10px;
+      }
+
+      .tc-details p:last-child {
+        margin-bottom: 0;
+      }
+
+      .tc-details h1,
+      .tc-details h2,
+      .tc-details h3,
+      .tc-details h4 {
+        font-family: var(--font-display);
+        color: var(--text);
+        font-weight: 700;
+        margin: 16px 0 8px;
+        line-height: 1.3;
+      }
+
+      .tc-details h3 {
+        font-size: 14px;
+      }
+
+      .tc-details h1:first-child,
+      .tc-details h2:first-child,
+      .tc-details h3:first-child {
+        margin-top: 0;
+      }
+
+      .tc-details ul,
+      .tc-details ol {
+        padding-left: 20px;
+        margin: 8px 0 12px;
+      }
+
+      .tc-details li {
+        margin-bottom: 4px;
+      }
+
+      .tc-details strong {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .tc-details code {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 12.5px;
+        background: var(--surface-subtle);
+        padding: 2px 6px;
+        border-radius: 5px;
+        color: var(--accent);
+      }
+
+      .tc-details table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .tc-details th,
+      .tc-details td {
+        text-align: left;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .tc-details th {
+        font-weight: 600;
+        color: var(--text);
+        background: var(--bg);
+      }
+
+      .tc-details hr {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 14px 0;
+      }
+
+      /* Inline Route Summary Artifact Card (Single-elevation, clean) */
+      .trip-card {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .tc-header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .tc-title {
+        font-family: var(--font-display);
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+      }
+
+      .tc-meta-line {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      /* Departure Times Strip */
+      .tc-times-wrap {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .tc-times-label {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--muted);
+      }
+
+      .tc-time-val {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        padding: 3px 9px;
+        border-radius: 6px;
+      }
+
+      /* Origin -> Destination Spine */
+      .stop-spine-wrap {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding-left: 22px;
+      }
+
+      .stop-spine-line {
+        position: absolute;
+        left: 6px;
+        top: 15px;
+        bottom: 15px;
+        width: 2px;
+        background: var(--border-strong);
+      }
+
+      .stop-spine-dot-top,
+      .stop-spine-dot-bot {
+        position: absolute;
+        left: 1px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+
+      .stop-spine-dot-top {
+        top: 8px;
+        border: 2.5px solid var(--primary);
+        background: var(--surface);
+      }
+
+      .stop-spine-dot-bot {
+        bottom: 8px;
+        background: var(--accent);
+        border: 2.5px solid var(--surface);
+        box-shadow: 0 0 0 2px var(--accent-glow);
+      }
+
+      .spine-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .sb-name {
+        font-size: 13.5px;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      .sb-sub {
+        font-size: 12px;
+        color: var(--muted);
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* Card Action Bar */
+      .tc-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-top: 4px;
+        border-top: 1px solid var(--border);
+        flex-wrap: wrap;
+      }
+
+      .btn-secondary {
+        height: 36px;
+        padding: 0 14px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        font-size: 12.5px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: border-color 0.14s, background 0.14s;
+      }
+
+      .btn-secondary:hover {
+        border-color: var(--border-strong);
+        background: var(--surface-subtle);
+      }
+
+      .cta-sim-btn {
+        height: 36px;
+        padding: 0 15px;
+        border-radius: var(--radius-sm);
+        border: none;
+        background: var(--accent);
+        color: #ffffff;
+        font-size: 12.5px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.14s;
+      }
+
+      .cta-sim-btn:hover {
+        background: var(--accent-hover);
+      }
+
+      /* Thinking / Skeleton State */
+      .thinking-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding-top: 4px;
+      }
+
+      .thinking-label {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--muted);
+      }
+
+      .skel-line {
+        height: 11px;
+        border-radius: 6px;
+        background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.2s infinite linear;
+      }
+
+      @keyframes shimmer {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+      }
+
+      .error-banner {
+        border: 1px solid #fecaca;
+        background: #fef2f2;
+        color: #b91c1c;
+        border-radius: var(--radius-md);
+        padding: 12px 14px;
+        font-size: 13.5px;
+        font-weight: 500;
+      }
+
+      /* ── FLOATING BOTTOM COMPOSER ────────────────────── */
+      .composer-dock {
+        padding: 10px 24px calc(18px + var(--safe-bot));
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, #ffffff 22%);
+        flex-shrink: 0;
+      }
+
+      .composer-box {
+        max-width: 760px;
+        margin: 0 auto;
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-xl);
+        padding: 10px 10px 10px 16px;
+        box-shadow: var(--shadow-composer);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: border-color 0.16s, box-shadow 0.16s;
+      }
+
+      .composer-box:focus-within {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 4px var(--accent-glow), var(--shadow-composer);
+      }
+
+      .pill-search-input {
+        flex: 1;
+        min-width: 0;
+        border: none;
+        background: transparent;
+        outline: none;
+        font-size: 14.5px;
+        color: var(--text);
+        line-height: 1.4;
+      }
+
+      .pill-search-input::placeholder {
+        color: var(--subtle);
+      }
+
+      .composer-quick-btn {
+        height: 36px;
+        padding: 0 12px;
+        border-radius: 10px;
+        border: none;
+        background: var(--surface-subtle);
+        color: var(--text-secondary);
+        font-size: 12.5px;
+        font-weight: 500;
+        cursor: pointer;
+        white-space: nowrap;
+        flex-shrink: 0;
+        display: none;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .pill-ask-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+        border: none;
+        background: var(--accent);
+        color: #ffffff;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: background 0.14s, opacity 0.14s;
+      }
+
+      .pill-ask-btn:hover:not(:disabled) {
+        background: var(--accent-hover);
+      }
+
+      .pill-ask-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      .composer-hint {
+        max-width: 760px;
+        margin: 6px auto 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 11.5px;
+        color: var(--subtle);
+        padding: 0 4px;
+      }
+
+      /* ── RIGHT CONTEXT ARTIFACT DRAWER: MAP & SIM ─────── */
+      .artifact-drawer {
+        width: 0;
+        opacity: 0;
+        overflow: hidden;
+        background: var(--bg);
+        border-left: 0 solid var(--border);
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+        transition: width 0.26s var(--ease), opacity 0.2s ease;
+        z-index: 50;
+      }
+
+      .workspace.artifact-open .artifact-drawer {
+        width: var(--artifact-w);
+        opacity: 1;
+        border-left-width: 1px;
+        box-shadow: var(--shadow-drawer);
+      }
+
+      .artifact-header {
+        height: var(--topbar-h);
+        padding: 0 14px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-shrink: 0;
+      }
+
+      .seg-tabs {
+        display: flex;
+        background: var(--surface-subtle);
+        border-radius: 8px;
+        padding: 3px;
+        gap: 2px;
+      }
+
+      .seg-tab {
+        border: none;
+        background: transparent;
+        padding: 5px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted);
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.14s, color 0.14s;
+      }
+
+      .seg-tab.active {
+        background: var(--surface);
+        color: var(--text);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .artifact-route-bar {
+        padding: 10px 14px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-shrink: 0;
+      }
+
+      .artifact-route-name {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .artifact-latency {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 11px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+
+      .map-stage {
+        position: relative;
+        flex: 1;
+        min-height: 220px;
+        background: var(--bg);
+      }
+
+      .workspace.sim-tab-active .map-stage {
+        flex: 0 0 46%;
+        min-height: 220px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      #transitMap {
+        width: 100%;
+        height: 100%;
+      }
+
+      .pale-osm-tiles {
+        filter: grayscale(0.85) contrast(0.92) brightness(1.04);
+      }
+
+      .map-legend {
+        position: absolute;
+        bottom: 12px;
+        left: 12px;
+        z-index: 450;
+        background: rgba(255, 255, 255, 0.94);
+        backdrop-filter: blur(8px);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 6px 10px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .ml-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      /* Simulation Drawer Section */
+      .sim-panel {
+        display: none;
+        flex: 1;
+        flex-direction: column;
+        overflow: hidden;
+        background: var(--surface);
+      }
+
+      .workspace.sim-tab-active .sim-panel {
+        display: flex;
+      }
+
+      .sim-bar {
+        padding: 10px 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg);
+      }
+
+      .sim-select {
+        flex: 1;
+        min-width: 150px;
+        height: 34px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 0 10px;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--text);
+        outline: none;
+      }
+
+      .seg-pills {
+        display: flex;
+        background: var(--surface-subtle);
+        border-radius: 7px;
+        padding: 2px;
+        gap: 2px;
+      }
+
+      .seg-btn {
+        border: none;
+        background: transparent;
+        padding: 4px 9px;
+        border-radius: 5px;
+        font-size: 11.5px;
+        font-weight: 600;
+        color: var(--muted);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .seg-btn.active {
+        background: var(--surface);
+        color: var(--text);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .sim-play-pill {
+        width: 34px;
+        height: 34px;
+        border-radius: var(--radius-sm);
+        border: none;
+        background: var(--accent);
+        color: #ffffff;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+
+      .sim-play-pill.paused {
+        background: var(--danger);
+      }
+
+      .sim-progress-track {
+        height: 3px;
+        background: var(--surface-subtle);
+        width: 100%;
+        flex-shrink: 0;
+      }
+
+      .sim-progress-bar {
+        height: 100%;
+        width: 0%;
+        background: var(--accent);
+        transition: width 0.18s linear;
+      }
+
+      .sim-stop-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px 14px 16px;
+        scrollbar-width: thin;
+      }
+
+      .sim-row {
+        position: relative;
+        padding: 9px 10px 9px 32px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        margin-bottom: 2px;
+        transition: background 0.14s;
+      }
+
+      .sim-row:hover {
+        background: var(--bg);
+      }
+
+      .sim-row.current {
+        background: var(--accent-lt);
+      }
+
+      .sim-row.passed {
+        opacity: 0.55;
+      }
+
+      .sim-row::before {
+        content: "";
+        position: absolute;
+        left: 11px;
+        top: 15px;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        border: 2px solid var(--border-strong);
+        background: var(--surface);
+        z-index: 1;
+      }
+
+      .sim-row::after {
+        content: "";
+        position: absolute;
+        left: 14.5px;
+        top: 24px;
+        bottom: -9px;
+        width: 2px;
+        background: var(--border);
+      }
+
+      .sim-row:last-child::after {
+        display: none;
+      }
+
+      .sim-row.passed::before {
+        background: var(--success);
+        border-color: var(--success);
+      }
+
+      .sim-row.current::before {
+        background: var(--accent);
+        border-color: var(--accent);
+        box-shadow: 0 0 0 4px var(--accent-glow);
+      }
+
+      .sr-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      .sr-meta {
+        font-size: 11.5px;
+        color: var(--muted);
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: 2px;
+      }
+
+      .sr-eta {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 11px;
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      /* Bus Marker */
+      .bus-marker-wrap {
+        position: relative;
+      }
+
+      .bus-pulse {
+        position: absolute;
+        inset: -8px;
+        border-radius: 50%;
+        border: 2px solid rgba(37, 99, 235, 0.5);
+        animation: ping 1.6s ease-out infinite;
+      }
+
+      .bus-core {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--accent);
+        border: 2.5px solid #ffffff;
+        color: #ffffff;
+        display: grid;
+        place-items: center;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.45);
+      }
+
+      @keyframes ping {
+        0% {
+          transform: scale(0.7);
+          opacity: 0.9;
+        }
+        100% {
+          transform: scale(2.2);
+          opacity: 0;
+        }
+      }
+
+      /* Mobile Backdrop */
+      .mobile-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.35);
+        backdrop-filter: blur(2px);
+        z-index: 35;
+      }
+
+      /* ── RESPONSIVE ──────────────────────────────────── */
+      @media (max-width: 1080px) {
+        :root {
+          --sidebar-w: 260px;
+          --artifact-w: 380px;
+        }
+      }
+
+      @media (max-width: 860px) {
+        .rail {
+          position: fixed;
+          top: 0;
+          bottom: 0;
+          left: 0;
+          width: min(85vw, 310px);
+          margin-left: 0 !important;
+          transform: translateX(-100%);
+          box-shadow: 8px 0 30px rgba(15, 23, 42, 0.14);
+        }
+
+        .workspace.mobile-rail-open .rail {
+          transform: translateX(0);
+        }
+
+        .workspace.mobile-rail-open .mobile-backdrop {
+          display: block;
+        }
+
+        .rail-open-btn {
+          display: grid !important;
+        }
+
+        .rail-close-btn {
+          display: grid;
+        }
+
+        .artifact-drawer {
+          position: fixed;
+          inset: 0;
+          width: 100% !important;
+          border-left: none !important;
+          transform: translateX(100%);
+          transition: transform 0.26s var(--ease), opacity 0.2s ease;
+          z-index: 60;
+        }
+
+        .workspace.artifact-open .artifact-drawer {
+          transform: translateX(0);
+        }
+
+        .stage-context,
+        .composer-hint {
+          display: none;
+        }
+
+        .chat-scroll {
+          padding: 18px 16px 12px;
+        }
+
+        .composer-dock {
+          padding: 8px 14px calc(14px + var(--safe-bot));
+        }
+
+        .composer-quick-btn {
+          display: inline-flex;
+        }
+
+        .starter-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+
+      /* Leaflet clean override */
+      .leaflet-popup-content-wrapper {
+        border-radius: 10px;
+        font-family: var(--font-sans);
+      }
+      .leaflet-control-zoom {
+        border: 1px solid var(--border) !important;
+        border-radius: 8px !important;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="workspace" id="workspace">
+      <div class="mobile-backdrop" onclick="closeMobileRail()"></div>
+
+      <!-- LEFT CORRIDOR DIRECTORY SIDEBAR -->
+      <aside class="rail" id="railSidebar" aria-label="Transit corridors">
+        <div class="rail-header">
+          <div class="brand">
+            <div class="brand-mark">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="3" y="7" width="18" height="12" rx="2" />
+                <path d="M8 7V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v3" />
+                <circle cx="7.5" cy="19" r="1.5" />
+                <circle cx="16.5" cy="19" r="1.5" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+              </svg>
+            </div>
+            <span class="brand-name">TBS AI Agent</span>
+          </div>
+
+          <button
+            class="icon-btn"
+            type="button"
+            onclick="toggleRail()"
+            title="Toggle sidebar"
+            aria-label="Toggle sidebar"
+          >
+            <svg
+              width="17"
+              height="17"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <line x1="9" y1="3" x2="9" y2="21" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="rail-controls">
+          <div class="rail-search">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <input
+              id="routeFilterInput"
+              type="text"
+              placeholder="Filter routes or suburbs..."
+              autocomplete="off"
+              oninput="renderAutoBoxes()"
+            />
+          </div>
+          <div class="region-strip" id="regionStrip"></div>
+        </div>
+
+        <div class="rail-section-head">
+          <span>Main Corridors</span>
+          <span class="rail-count" id="drawerCount">0</span>
+        </div>
+
+        <div class="autobox-grid" id="autoboxGrid"></div>
+
+        <div class="rail-footer">
+          <div class="status-indicator">
+            <span class="status-dot" id="apiDot"></span>
+            <span id="apiStatusLabel">Connecting</span>
+          </div>
+          <span id="routeCountLabel">Tshwane Network</span>
+        </div>
+      </aside>
+
+      <!-- CENTER MAIN CHARACTER: AGENTIC CHAT WORKSPACE -->
+      <main class="chat-stage">
+        <header class="stage-topbar">
+          <div class="stage-left">
+            <button
+              class="icon-btn rail-open-btn"
+              type="button"
+              onclick="toggleRail()"
+              title="Open routes sidebar"
+              aria-label="Open routes sidebar"
+            >
+              <svg
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <line x1="9" y1="3" x2="9" y2="21" />
+              </svg>
+            </button>
+
+            <div class="stage-title-group">
+              <span class="stage-title">Transit Assistant</span>
+              <span class="stage-context" id="stageContextLabel"
+                >Tshwane Bus Service</span
+              >
+            </div>
+          </div>
+
+          <div class="stage-actions">
+            <button
+              class="btn-ghost"
+              type="button"
+              onclick="resetConversation()"
+              title="Start a fresh conversation"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              New Chat
+            </button>
+
+            <button
+              class="btn-map-toggle"
+              id="mapToggleBtn"
+              type="button"
+              onclick="toggleArtifactDrawer()"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+                <line x1="9" y1="3" x2="9" y2="18" />
+                <line x1="15" y1="6" x2="15" y2="21" />
+              </svg>
+              <span>Map &amp; Sim</span>
+              <span class="map-route-count" id="mapBadgeCount"></span>
+            </button>
+          </div>
+        </header>
+
+        <div class="chat-scroll" id="chatScroll">
+          <div class="chat-container">
+            <section class="welcome-hero" id="welcomeHero">
+              <div class="welcome-copy">
+                <h1>Where are you travelling in Tshwane?</h1>
+                <p>
+                  Ask for bus departures, stop sequences, Saturday timetables, or
+                  pick a corridor from the sidebar to inspect its route.
+                </p>
+              </div>
+
+              <div class="starter-grid">
+                <button
+                  class="starter-card"
+                  type="button"
+                  onclick="sendChatQuery('First weekday bus to Centurion?')"
+                >
+                  <span class="starter-label">Weekday Departure</span>
+                  <span class="starter-query"
+                    >First weekday bus to Centurion?</span
+                  >
+                </button>
+                <button
+                  class="starter-card"
+                  type="button"
+                  onclick="sendChatQuery('Show route and stops for Brooklyn')"
+                >
+                  <span class="starter-label">Corridor &amp; Stops</span>
+                  <span class="starter-query"
+                    >Show route and stops for Brooklyn</span
+                  >
+                </button>
+                <button
+                  class="starter-card"
+                  type="button"
+                  onclick="sendChatQuery('Saturday buses for Pretoria North')"
+                >
+                  <span class="starter-label">Weekend Service</span>
+                  <span class="starter-query"
+                    >Saturday buses for Pretoria North</span
+                  >
+                </button>
+                <button
+                  class="starter-card"
+                  type="button"
+                  onclick="sendChatQuery('Which routes connect Pretoria CBD to Hatfield?')"
+                >
+                  <span class="starter-label">Trip Planning</span>
+                  <span class="starter-query"
+                    >Which routes connect Pretoria CBD to Hatfield?</span
+                  >
+                </button>
+              </div>
+            </section>
+
+            <div class="chat-feed" id="feedContainer"></div>
+          </div>
+        </div>
+
+        <footer class="composer-dock">
+          <form class="composer-box" id="chatForm">
+            <button
+              class="composer-quick-btn"
+              type="button"
+              onclick="toggleRail()"
+            >
+              Routes
+            </button>
+            <input
+              class="pill-search-input"
+              id="chatInput"
+              placeholder="Ask about a route, stop, or departure time..."
+              autocomplete="off"
+              required
+            />
+            <button
+              class="pill-ask-btn"
+              id="askBtn"
+              type="submit"
+              aria-label="Send message"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <line x1="12" y1="19" x2="12" y2="5" />
+                <polyline points="5 12 12 5 19 12" />
+              </svg>
+            </button>
+          </form>
+          <div class="composer-hint">
+            <span>Enter to send</span>
+            <span>Maps &amp; live simulation open in the side panel</span>
+          </div>
+        </footer>
+      </main>
+
+      <!-- SUPPORTING CONTEXT DRAWER: MAP & LIVE SIMULATION -->
+      <aside
+        class="artifact-drawer"
+        id="artifactDrawer"
+        aria-label="Route map and simulation"
+      >
+        <div class="artifact-header">
+          <div class="seg-tabs" role="tablist">
+            <button
+              class="seg-tab active"
+              id="tabMapBtn"
+              type="button"
+              onclick="setArtifactTab('map')"
+            >
+              Route Map
+            </button>
+            <button
+              class="seg-tab"
+              id="tabSimBtn"
+              type="button"
+              onclick="setArtifactTab('sim')"
+            >
+              Simulate
+            </button>
+          </div>
+
+          <button
+            class="icon-btn"
+            type="button"
+            onclick="closeArtifactDrawer()"
+            title="Close panel"
+            aria-label="Close map panel"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="artifact-route-bar">
+          <span class="artifact-route-name" id="activeRouteText"
+            >Pretoria / Tshwane Network</span
+          >
+          <span
+            class="artifact-latency"
+            id="latencyBadge"
+            style="display: none"
+          ></span>
+        </div>
+
+        <div class="map-stage">
+          <div id="transitMap"></div>
+          <div class="map-legend">
+            <span class="ml-item"
+              ><span
+                style="
+                  width: 12px;
+                  height: 3px;
+                  background: #2563eb;
+                  border-radius: 2px;
+                  display: inline-block;
+                "
+              ></span>
+              Outbound</span
+            >
+            <span class="ml-item"
+              ><span
+                style="
+                  width: 12px;
+                  height: 3px;
+                  background: #10b981;
+                  border-radius: 2px;
+                  display: inline-block;
+                "
+              ></span>
+              Inbound</span
+            >
+            <span class="ml-item"
+              ><span
+                style="
+                  width: 8px;
+                  height: 8px;
+                  background: #0f172a;
+                  border-radius: 50%;
+                  display: inline-block;
+                "
+              ></span>
+              Terminal</span
+            >
+          </div>
+        </div>
+
+        <div class="sim-panel" id="simPanel">
+          <div class="sim-bar">
+            <select class="sim-select" id="simSelect">
+              <option value="">Select route...</option>
+            </select>
+            <div class="seg-pills">
+              <button
+                class="seg-btn active"
+                id="dirOutBtn"
+                type="button"
+                onclick="setSimDir('out')"
+              >
+                Outbound
+              </button>
+              <button
+                class="seg-btn"
+                id="dirInBtn"
+                type="button"
+                onclick="setSimDir('in')"
+              >
+                Inbound
+              </button>
+            </div>
+            <div class="seg-pills">
+              <button
+                class="seg-btn"
+                type="button"
+                data-spd="1"
+                onclick="setSimSpeed(1, this)"
+              >
+                1×
+              </button>
+              <button
+                class="seg-btn active"
+                type="button"
+                data-spd="2"
+                onclick="setSimSpeed(2, this)"
+              >
+                2×
+              </button>
+              <button
+                class="seg-btn"
+                type="button"
+                data-spd="5"
+                onclick="setSimSpeed(5, this)"
+              >
+                5×
+              </button>
+            </div>
+            <button
+              class="sim-play-pill"
+              id="simPlayBtn"
+              type="button"
+              onclick="toggleSimPlay()"
+              aria-label="Play or pause simulation"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="sim-progress-track">
+            <div class="sim-progress-bar" id="simProgressBar"></div>
+          </div>
+
+          <div class="sim-stop-list" id="simStopList">
+            <div
+              style="
+                text-align: center;
+                padding: 32px 16px;
+                color: var(--muted);
+                font-size: 13px;
+              "
+            >
+              Select any main route above or click
+              <strong>Simulate Journey</strong> on a response card to start
+              playback.
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <script>
+      // ── SESSION & STATE ──────────────────────────────────
+      const sessionId =
+        sessionStorage.getItem("tbs_session_id") ||
+        `tbs-${Math.random().toString(36).slice(2, 8)}`;
+      sessionStorage.setItem("tbs_session_id", sessionId);
+
+      const state = {
+        mainRoutes: [],
+        selectedRegion: "ALL",
+        loadedRoutes: new Map(), // route_code -> { meta, bbox, stopsByDir }
+        activeCode: null,
+        artifactOpen: false,
+        artifactTab: "map", // 'map' | 'sim'
+      };
+
+      const workspace = document.getElementById("workspace");
+      const chatScroll = document.getElementById("chatScroll");
+      const welcomeHero = document.getElementById("welcomeHero");
+      const feed = document.getElementById("feedContainer");
+
+      // ── KEYLESS OPENSTREETMAP INITIALIZATION ─────────────
+      const map = L.map("transitMap", { zoomControl: false }).setView(
+        [-25.745, 28.2],
+        12,
+      );
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 19,
+        className: "pale-osm-tiles",
+      }).addTo(map);
+      L.control.zoom({ position: "topright" }).addTo(map);
+
+      const routeLayer = L.layerGroup().addTo(map);
+      const simLayer = L.layerGroup().addTo(map);
+
+      // ── LOAD MAIN ROUTES FOR SIDEBAR ─────────────────────
+      (async () => {
+        try {
+          const [healthRes, routesRes] = await Promise.all([
+            fetch("/api/v1/health"),
+            fetch("/api/v1/routes"),
+          ]);
+          if (!healthRes.ok) throw new Error();
+          document.getElementById("apiDot").classList.remove("offline");
+          document.getElementById("apiStatusLabel").textContent = "Online";
+
+          if (routesRes.ok) {
+            state.mainRoutes = await routesRes.json();
+            document.getElementById("routeCountLabel").textContent =
+              `${state.mainRoutes.length} corridors`;
+            renderRegions();
+            renderAutoBoxes();
+            populateSimSelect();
+          }
+        } catch {
+          document.getElementById("apiDot").classList.add("offline");
+          document.getElementById("apiStatusLabel").textContent = "Offline";
+        }
+      })();
+
+      function renderRegions() {
+        const regions = Array.from(
+          new Set(state.mainRoutes.map((r) => r.region).filter(Boolean)),
+        ).sort();
+        const strip = document.getElementById("regionStrip");
+        strip.innerHTML = ["ALL", ...regions]
+          .map(
+            (reg) =>
+              `<button type="button" class="reg-chip ${state.selectedRegion === reg ? "active" : ""}" onclick="filterRegion('${escapeHtml(reg)}')">${reg === "ALL" ? "All" : escapeHtml(reg)}</button>`,
+          )
+          .join("");
+      }
+
+      function filterRegion(reg) {
+        state.selectedRegion = reg;
+        renderRegions();
+        renderAutoBoxes();
+      }
+
+      function renderAutoBoxes() {
+        const q = (
+          document.getElementById("routeFilterInput")?.value || ""
+        )
+          .trim()
+          .toLowerCase();
+
+        const list = state.mainRoutes.filter((r) => {
+          const matchesReg =
+            state.selectedRegion === "ALL" ||
+            r.region === state.selectedRegion;
+          const matchesQuery =
+            !q ||
+            (r.name || "").toLowerCase().includes(q) ||
+            (r.route_code || "").toLowerCase().includes(q) ||
+            (r.region || "").toLowerCase().includes(q) ||
+            (r.area || "").toLowerCase().includes(q);
+          return matchesReg && matchesQuery;
+        });
+
+        document.getElementById("drawerCount").textContent = list.length;
+        const grid = document.getElementById("autoboxGrid");
+
+        if (!list.length) {
+          grid.innerHTML = `<div style="padding:20px 10px;text-align:center;font-size:12.5px;color:var(--muted)">No matching routes found.</div>`;
+          return;
+        }
+
+        grid.innerHTML = list
+          .map((r) => {
+            const serviceParts = [];
+            if (r.wd_service) serviceParts.push("Weekday");
+            if (r.sat_service) serviceParts.push("Sat");
+            const metaLine = [
+              r.region || r.area || "Pretoria",
+              serviceParts.join(" / "),
+            ]
+              .filter(Boolean)
+              .join(" · ");
+            const isActive = state.activeCode === r.route_code;
+
+            return `
+              <button type="button" class="route-box ${isActive ? "active-route" : ""}" onclick="onAutoBoxClick('${escapeHtml(r.route_code)}', '${escapeHtml(r.name)}')">
+                <div class="rb-name">${escapeHtml(r.name)}</div>
+                <div class="rb-meta">
+                  <span class="rb-code">${escapeHtml(r.route_code)}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>${escapeHtml(metaLine)}</span>
+                </div>
+              </button>`;
+          })
+          .join("");
+      }
+
+      function onAutoBoxClick(code, name) {
+        closeMobileRail();
+        sendChatQuery(
+          `Show route overview, stops, and schedule for ${name} (${code})`,
+        );
+      }
+
+      // ── SIDEBAR & ARTIFACT DRAWER CONTROLS ───────────────
+      function toggleRail() {
+        if (window.innerWidth <= 860) {
+          workspace.classList.toggle("mobile-rail-open");
+        } else {
+          workspace.classList.toggle("rail-collapsed");
+          setTimeout(() => map.invalidateSize(), 260);
+        }
+      }
+
+      function closeMobileRail() {
+        workspace.classList.remove("mobile-rail-open");
+      }
+
+      function openArtifactDrawer(tab = "map") {
+        state.artifactOpen = true;
+        workspace.classList.add("artifact-open");
+        document.getElementById("mapToggleBtn").classList.add("active");
+        setArtifactTab(tab);
+        setTimeout(() => map.invalidateSize(), 280);
+      }
+
+      function closeArtifactDrawer() {
+        state.artifactOpen = false;
+        workspace.classList.remove("artifact-open");
+        document.getElementById("mapToggleBtn").classList.remove("active");
+        stopSim();
+        setTimeout(() => map.invalidateSize(), 280);
+      }
+
+      function toggleArtifactDrawer() {
+        if (state.artifactOpen) {
+          closeArtifactDrawer();
+        } else {
+          openArtifactDrawer(state.artifactTab);
+        }
+      }
+
+      function setArtifactTab(tab) {
+        state.artifactTab = tab;
+        document
+          .getElementById("tabMapBtn")
+          .classList.toggle("active", tab === "map");
+        document
+          .getElementById("tabSimBtn")
+          .classList.toggle("active", tab === "sim");
+        workspace.classList.toggle("sim-tab-active", tab === "sim");
+
+        if (tab === "map") {
+          stopSim();
+          if (state.activeCode) plotRouteOnMap(state.activeCode);
+        } else if (tab === "sim") {
+          if (state.activeCode) {
+            document.getElementById("simSelect").value = state.activeCode;
+            ensureAndInitSim(state.activeCode, sim.dir);
+          }
+        }
+        setTimeout(() => map.invalidateSize(), 240);
+      }
+
+      function resetConversation() {
+        feed.innerHTML = "";
+        welcomeHero.classList.remove("hidden");
+        document.getElementById("chatInput").focus();
+      }
+
+      // ── PARSE & DEDUPLICATE GEOJSON ──────────────────────
+      function extractStopsByDir(geojson) {
+        const dirs = { out: [], in: [] };
+        const seen = new Set();
+
+        for (const f of geojson?.features || []) {
+          if (f.geometry?.type !== "Point") continue;
+          const p = f.properties || {};
+          const dir = p.direction === "in" ? "in" : "out";
+          const key = `${dir}:${p.sequence_no}:${p.name}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+
+          const [lon, lat] = f.geometry.coordinates || [];
+          if (typeof lat === "number" && typeof lon === "number") {
+            dirs[dir].push({
+              sequence_no: p.sequence_no ?? 0,
+              name: p.name || "Stop",
+              street: p.street || "",
+              stop_type: p.stop_type || "stop",
+              lat,
+              lon,
+            });
+          }
+        }
+        dirs.out.sort((a, b) => a.sequence_no - b.sequence_no);
+        dirs.in.sort((a, b) => a.sequence_no - b.sequence_no);
+        return dirs;
+      }
+
+      function plotRouteOnMap(code) {
+        const entry = state.loadedRoutes.get(code);
+        if (!entry) return;
+        state.activeCode = code;
+        renderAutoBoxes();
+
+        simLayer.clearLayers();
+        routeLayer.clearLayers();
+
+        const { stopsByDir, meta, bbox } = entry;
+        const outCoords = stopsByDir.out.map((s) => [s.lat, s.lon]);
+        const inCoords = stopsByDir.in.map((s) => [s.lat, s.lon]);
+
+        if (outCoords.length > 1) {
+          L.polyline(outCoords, {
+            color: "#2563eb",
+            weight: 5,
+            opacity: 0.92,
+          }).addTo(routeLayer);
+        }
+        if (inCoords.length > 1) {
+          L.polyline(inCoords, {
+            color: "#10b981",
+            weight: 4,
+            opacity: 0.85,
+            dashArray: "8 6",
+          }).addTo(routeLayer);
+        }
+
+        const seenCoord = new Set();
+        [...stopsByDir.out, ...stopsByDir.in].forEach((s) => {
+          const k = `${s.lat},${s.lon}`;
+          if (seenCoord.has(k)) return;
+          seenCoord.add(k);
+
+          const isTerm = s.stop_type === "terminal";
+          const isCbd = s.stop_type === "cbd_point";
+          L.circleMarker([s.lat, s.lon], {
+            radius: isTerm ? 8 : isCbd ? 7 : 5,
+            fillColor: isTerm ? "#0f172a" : isCbd ? "#d97706" : "#2563eb",
+            color: "#ffffff",
+            weight: 2,
+            fillOpacity: 1,
+          })
+            .bindPopup(
+              `<strong>${escapeHtml(s.name)}</strong><br><small>${escapeHtml(s.street || s.stop_type)}</small>`,
+            )
+            .addTo(routeLayer);
+        });
+
+        const all = [...outCoords, ...inCoords];
+        if (all.length > 0) {
+          map.fitBounds(L.latLngBounds(all), { padding: [45, 45] });
+        } else if (bbox?.length === 4) {
+          map.fitBounds(
+            [
+              [bbox[1], bbox[0]],
+              [bbox[3], bbox[2]],
+            ],
+            { padding: [45, 45] },
+          );
+        }
+
+        const label = `${meta.route_code} · ${meta.name}`;
+        document.getElementById("activeRouteText").textContent = label;
+        document.getElementById("stageContextLabel").textContent = label;
+        document.getElementById("mapBadgeCount").textContent = meta.route_code;
+      }
+
+      // ── CHAT SUBMISSION & AGENTIC TURN RENDERING ─────────
+      const chatForm = document.getElementById("chatForm");
+      const chatInput = document.getElementById("chatInput");
+      const askBtn = document.getElementById("askBtn");
+
+      chatForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const q = chatInput.value.trim();
+        if (q) sendChatQuery(q);
+      });
+
+      async function sendChatQuery(queryText) {
+        chatInput.value = "";
+        askBtn.disabled = true;
+        welcomeHero.classList.add("hidden");
+
+        const userTurn = document.createElement("div");
+        userTurn.className = "user-turn";
+        userTurn.innerHTML = `<div class="user-query-pill">${escapeHtml(queryText)}</div>`;
+        feed.appendChild(userTurn);
+
+        const thinkingTurn = document.createElement("div");
+        thinkingTurn.className = "agent-turn";
+        thinkingTurn.innerHTML = `
+          <div class="agent-avatar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="7" width="18" height="12" rx="2" />
+              <path d="M8 7V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v3" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+            </svg>
+          </div>
+          <div class="agent-body">
+            <div class="thinking-wrap">
+              <div class="thinking-label">Checking Tshwane routes and timetables...</div>
+              <div class="skel-line" style="width: 72%"></div>
+              <div class="skel-line" style="width: 90%"></div>
+              <div class="skel-line" style="width: 54%"></div>
+            </div>
+          </div>
+        `;
+        feed.appendChild(thinkingTurn);
+        chatScroll.scrollTop = chatScroll.scrollHeight;
+
+        try {
+          const res = await fetch("/api/v1/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: queryText,
+              session_id: sessionId,
+              include_map_data: true,
+            }),
+          });
+          const payload = await res.json();
+          thinkingTurn.remove();
+
+          if (!res.ok) {
+            renderErrorCard(payload.detail || `Error ${res.status}`);
+            return;
+          }
+
+          const { data, meta } = payload;
+          const mentionedMap = new Map(
+            (data.routes_mentioned || []).map((r) => [r.route_code, r]),
+          );
+
+          for (const mr of data.map_routes || []) {
+            state.loadedRoutes.set(mr.route_code, {
+              meta: mentionedMap.get(mr.route_code) || {
+                route_code: mr.route_code,
+                name: mr.name,
+                region: mr.region,
+              },
+              bbox: mr.bbox,
+              stopsByDir: extractStopsByDir(mr.geojson),
+            });
+          }
+
+          populateSimSelect();
+
+          if (meta?.latency_ms != null) {
+            const lb = document.getElementById("latencyBadge");
+            lb.style.display = "inline-block";
+            lb.textContent =
+              meta.latency_ms >= 1000
+                ? `${(meta.latency_ms / 1000).toFixed(1)}s`
+                : `${meta.latency_ms}ms`;
+          }
+
+          if (data.map_routes?.length > 0) {
+            plotRouteOnMap(data.map_routes[0].route_code);
+            if (window.innerWidth > 1024 && !state.artifactOpen) {
+              openArtifactDrawer("map");
+            }
+          }
+
+          renderAgentTurn(payload);
+        } catch {
+          thinkingTurn.remove();
+          renderErrorCard("Unable to connect to transit server.");
+        } finally {
+          askBtn.disabled = false;
+          chatScroll.scrollTop = chatScroll.scrollHeight;
+        }
+      }
+
+      function renderAgentTurn(payload) {
+        const { data, meta } = payload;
+        const route = (data.routes_mentioned || [])[0];
+        const mapRoute = (data.map_routes || [])[0];
+        const loaded = mapRoute
+          ? state.loadedRoutes.get(mapRoute.route_code)
+          : null;
+
+        const outCount = loaded?.stopsByDir.out.length || 0;
+        const inCount = loaded?.stopsByDir.in.length || 0;
+
+        const timeMatches = Array.from(
+          new Set((data.answer || "").match(/\b\d{2}:\d{2}\b/g) || []),
+        ).slice(0, 6);
+
+        const timeHtml =
+          timeMatches.length > 0
+            ? `<div class="tc-times-wrap">
+                <span class="tc-times-label">Departures</span>
+                ${timeMatches
+                  .map((t) => `<span class="tc-time-val">${t}</span>`)
+                  .join("")}
+              </div>`
+            : "";
+
+        const spineHtml =
+          route?.terminus_from && route?.terminus_to
+            ? `<div class="stop-spine-wrap">
+                <div class="stop-spine-line"></div>
+                <div class="stop-spine-dot-top"></div>
+                <div class="stop-spine-dot-bot"></div>
+                <div class="spine-row">
+                  <span class="sb-name">${escapeHtml(route.terminus_from)}</span>
+                  <span class="sb-sub">Origin · ${outCount} outbound stops</span>
+                </div>
+                <div class="spine-row">
+                  <span class="sb-name">${escapeHtml(route.terminus_to)}</span>
+                  <span class="sb-sub">Terminus · ${inCount} inbound stops</span>
+                </div>
+              </div>`
+            : "";
+
+        const actionsHtml = mapRoute
+          ? `<div class="tc-actions">
+              <button class="btn-secondary" type="button" onclick="viewRouteOnMap('${escapeHtml(mapRoute.route_code)}')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+                </svg>
+                View on Map
+              </button>
+              <button class="cta-sim-btn" type="button" onclick="startJourneyFromCard('${escapeHtml(mapRoute.route_code)}')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+                Simulate Journey
+              </button>
+            </div>`
+          : "";
+
+        const tripArtifactHtml =
+          route || mapRoute
+            ? `<div class="trip-card">
+                <div class="tc-header">
+                  <span class="tc-title">${escapeHtml(route ? route.name : mapRoute.name)}</span>
+                  <span class="tc-meta-line">${escapeHtml(route ? route.route_code : mapRoute.route_code)}${route?.region ? ` · ${escapeHtml(route.region)}` : ""}</span>
+                </div>
+                ${timeHtml}
+                ${spineHtml}
+                ${actionsHtml}
+              </div>`
+            : "";
+
+        const latencyText =
+          meta?.latency_ms != null
+            ? meta.latency_ms >= 1000
+              ? `${(meta.latency_ms / 1000).toFixed(1)}s`
+              : `${meta.latency_ms}ms`
+            : "";
+
+        const turn = document.createElement("div");
+        turn.className = "agent-turn";
+        turn.innerHTML = `
+          <div class="agent-avatar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="7" width="18" height="12" rx="2" />
+              <path d="M8 7V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v3" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+            </svg>
+          </div>
+          <div class="agent-body">
+            <div class="agent-turn-meta">
+              <span class="agent-name">TBS Agent</span>
+              ${latencyText ? `<span aria-hidden="true">·</span><span class="agent-latency">${latencyText}</span>` : ""}
+            </div>
+            <div class="tc-details">${marked.parse(data.answer || "")}</div>
+            ${tripArtifactHtml}
+          </div>
+        `;
+        feed.appendChild(turn);
+      }
+
+      function renderErrorCard(message) {
+        const turn = document.createElement("div");
+        turn.className = "agent-turn";
+        turn.innerHTML = `
+          <div class="agent-avatar">!</div>
+          <div class="agent-body">
+            <div class="error-banner">${escapeHtml(message)}</div>
+          </div>
+        `;
+        feed.appendChild(turn);
+      }
+
+      function viewRouteOnMap(code) {
+        plotRouteOnMap(code);
+        openArtifactDrawer("map");
+      }
+
+      function startJourneyFromCard(code) {
+        state.activeCode = code;
+        openArtifactDrawer("sim");
+      }
+
+      // ── SMOOTH JOURNEY SIMULATION ENGINE ─────────────────
+      const sim = {
+        running: false,
+        stops: [],
+        idx: 0,
+        segProgress: 0,
+        dir: "out",
+        speed: 2,
+        rafId: null,
+        lastTs: null,
+        busMarker: null,
+        passedLine: null,
+      };
+
+      function populateSimSelect() {
+        const sel = document.getElementById("simSelect");
+        const cur = sel.value;
+        const list =
+          state.mainRoutes.length > 0
+            ? state.mainRoutes
+            : Array.from(state.loadedRoutes.values()).map((v) => v.meta);
+
+        sel.innerHTML =
+          '<option value="">Select route...</option>' +
+          list
+            .map(
+              (r) =>
+                `<option value="${escapeHtml(r.route_code)}">${escapeHtml(r.route_code)} — ${escapeHtml(r.name)}</option>`,
+            )
+            .join("");
+        if (cur) sel.value = cur;
+      }
+
+      document.getElementById("simSelect").addEventListener("change", (e) => {
+        if (e.target.value) ensureAndInitSim(e.target.value, sim.dir);
+      });
+
+      function setSimDir(dir) {
+        sim.dir = dir;
+        document
+          .getElementById("dirOutBtn")
+          .classList.toggle("active", dir === "out");
+        document
+          .getElementById("dirInBtn")
+          .classList.toggle("active", dir === "in");
+        const code = document.getElementById("simSelect").value;
+        if (code) ensureAndInitSim(code, dir);
+      }
+
+      function setSimSpeed(spd, btn) {
+        sim.speed = spd;
+        document
+          .querySelectorAll("[data-spd]")
+          .forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+      }
+
+      async function ensureAndInitSim(code, dir) {
+        if (!state.loadedRoutes.has(code)) {
+          document.getElementById("simStopList").innerHTML =
+            `<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Loading coordinates for ${escapeHtml(code)}...</div>`;
+          try {
+            const res = await fetch("/api/v1/chat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                query: `Show stops for ${code}`,
+                session_id: sessionId,
+                include_map_data: true,
+              }),
+            });
+            if (res.ok) {
+              const payload = await res.json();
+              const { data } = payload;
+              const mMap = new Map(
+                (data.routes_mentioned || []).map((r) => [r.route_code, r]),
+              );
+              for (const mr of data.map_routes || []) {
+                state.loadedRoutes.set(mr.route_code, {
+                  meta: mMap.get(mr.route_code) || {
+                    route_code: mr.route_code,
+                    name: mr.name,
+                  },
+                  bbox: mr.bbox,
+                  stopsByDir: extractStopsByDir(mr.geojson),
+                });
+              }
+            }
+          } catch {
+            return;
+          }
+        }
+        initSim(code, dir);
+      }
+
+      function initSim(code, dir) {
+        stopSim();
+        const entry = state.loadedRoutes.get(code);
+        if (!entry) return;
+        state.activeCode = code;
+
+        const stops = entry.stopsByDir[dir] || [];
+        sim.stops = stops;
+        sim.idx = 0;
+        sim.segProgress = 0;
+
+        document.getElementById("activeRouteText").textContent =
+          `${code} · ${dir === "out" ? "Outbound" : "Inbound"} (${stops.length} stops)`;
+
+        const listEl = document.getElementById("simStopList");
+        if (!stops.length) {
+          listEl.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">No stops found in this direction.</div>`;
+          return;
+        }
+
+        listEl.innerHTML = stops
+          .map(
+            (s, i) => `
+              <div class="sim-row ${i === 0 ? "current" : ""}" id="simRow${i}" onclick="jumpSimTo(${i})">
+                <div class="sr-name">${escapeHtml(s.name)}</div>
+                <div class="sr-meta">
+                  <span>${escapeHtml(s.street || s.stop_type)}</span>
+                  <span class="sr-eta" id="simEta${i}"></span>
+                </div>
+              </div>`,
+          )
+          .join("");
+
+        routeLayer.clearLayers();
+        simLayer.clearLayers();
+
+        const coords = stops.map((s) => [s.lat, s.lon]);
+        L.polyline(coords, {
+          color: "#cbd5e1",
+          weight: 5,
+          opacity: 0.85,
+        }).addTo(simLayer);
+        sim.passedLine = L.polyline([], {
+          color: "#2563eb",
+          weight: 5,
+          opacity: 0.95,
+        }).addTo(simLayer);
+
+        stops.forEach((s, i) => {
+          L.circleMarker([s.lat, s.lon], {
+            radius: s.stop_type === "terminal" ? 7 : 4.5,
+            fillColor: s.stop_type === "terminal" ? "#0f172a" : "#2563eb",
+            color: "#ffffff",
+            weight: 1.5,
+            fillOpacity: 1,
+          })
+            .bindTooltip(`${i + 1}. ${s.name}`)
+            .addTo(simLayer);
+        });
+
+        const busIcon = L.divIcon({
+          className: "",
+          html: `<div class="bus-marker-wrap">
+                   <div class="bus-pulse"></div>
+                   <div class="bus-core">
+                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+                       <rect x="3" y="7" width="18" height="12" rx="2" />
+                       <path d="M8 7V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+                     </svg>
+                   </div>
+                 </div>`,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
+        });
+
+        sim.busMarker = L.marker(coords[0], {
+          icon: busIcon,
+          zIndexOffset: 1000,
+        }).addTo(simLayer);
+        map.fitBounds(L.latLngBounds(coords), { padding: [45, 45] });
+        document.getElementById("simProgressBar").style.width = "0%";
+      }
+
+      function toggleSimPlay() {
+        if (sim.running) {
+          stopSim();
+          return;
+        }
+        if (sim.idx >= sim.stops.length - 1) {
+          sim.idx = 0;
+          sim.segProgress = 0;
+        }
+        startSim();
+      }
+
+      function startSim() {
+        if (sim.stops.length < 2) return;
+        sim.running = true;
+        sim.lastTs = performance.now();
+        const btn = document.getElementById("simPlayBtn");
+        btn.classList.add("paused");
+        btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`;
+
+        const loop = (now) => {
+          if (!sim.running) return;
+          const dt = (now - sim.lastTs) / 1000;
+          sim.lastTs = now;
+
+          sim.segProgress += dt / Math.max(0.35, 2.2 / sim.speed);
+          while (sim.segProgress >= 1 && sim.idx < sim.stops.length - 1) {
+            sim.segProgress -= 1;
+            sim.idx++;
+            updateSimRows(sim.idx);
+          }
+
+          if (sim.idx >= sim.stops.length - 1) {
+            renderSimFrame(sim.stops.length - 1, 0);
+            stopSim();
+            return;
+          }
+
+          renderSimFrame(sim.idx, sim.segProgress);
+          sim.rafId = requestAnimationFrame(loop);
+        };
+
+        updateSimRows(sim.idx);
+        sim.rafId = requestAnimationFrame(loop);
+      }
+
+      function stopSim() {
+        sim.running = false;
+        if (sim.rafId) {
+          cancelAnimationFrame(sim.rafId);
+          sim.rafId = null;
+        }
+        const btn = document.getElementById("simPlayBtn");
+        btn.classList.remove("paused");
+        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
+      }
+
+      function jumpSimTo(i) {
+        stopSim();
+        sim.idx = i;
+        sim.segProgress = 0;
+        updateSimRows(i);
+        renderSimFrame(i, 0);
+      }
+
+      function updateSimRows(idx) {
+        sim.stops.forEach((_, i) => {
+          const row = document.getElementById(`simRow${i}`);
+          if (!row) return;
+          row.classList.remove("current", "passed");
+          if (i < idx) row.classList.add("passed");
+          if (i === idx) row.classList.add("current");
+          const etaEl = document.getElementById(`simEta${i}`);
+          if (etaEl) {
+            etaEl.textContent =
+              i > idx ? `~${(i - idx) * Math.ceil(3 / sim.speed)} min` : "";
+          }
+        });
+        const cur = document.getElementById(`simRow${idx}`);
+        if (cur) cur.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+
+      function renderSimFrame(idx, t) {
+        const a = sim.stops[idx];
+        const b = sim.stops[Math.min(idx + 1, sim.stops.length - 1)];
+        const lat = a.lat + (b.lat - a.lat) * t;
+        const lon = a.lon + (b.lon - a.lon) * t;
+
+        if (sim.busMarker) sim.busMarker.setLatLng([lat, lon]);
+        if (sim.passedLine) {
+          const trail = sim.stops
+            .slice(0, idx + 1)
+            .map((s) => [s.lat, s.lon]);
+          if (t > 0) trail.push([lat, lon]);
+          sim.passedLine.setLatLngs(trail);
+        }
+        map.panTo([lat, lon], { animate: false });
+
+        const pct =
+          sim.stops.length > 1
+            ? Math.min(100, ((idx + t) / (sim.stops.length - 1)) * 100)
+            : 0;
+        document.getElementById("simProgressBar").style.width = `${pct}%`;
+      }
+
+      function escapeHtml(str) {
+        return String(str).replace(
+          /[&<>"']/g,
+          (m) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[m],
+        );
+      }
+    </script>
+  </body>
+</html>
