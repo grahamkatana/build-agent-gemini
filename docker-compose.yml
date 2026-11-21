@@ -24,13 +24,12 @@ services:
     build: .
     restart: unless-stopped
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-tshwane_bus}}
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: tshwane_bus
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-tshwane_bus}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-tshwane_bus}
       POSTGRES_PORT: 5432
-
-      GEMINI_API_KEY: ${GEMINI_API_KEY:your_api_key_here}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
     depends_on:
       db:
         condition: service_healthy
