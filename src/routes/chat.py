@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request
 
 from src.core.limiter import limiter
-from src.handlers.bus_chat_handler import handle_bus_chat
+from src.consumption.handlers.bus_chat_handler import handle_bus_chat
 from src.schemas.chat import ChatRequest, ChatResponse
 
 router = APIRouter(prefix="/chat", tags=["Chat"])

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import text
 
-from src.database.session import (
+from src.database.db import (
     engine,
 )  # Adjust import to match your SQLAlchemy engine module
 
